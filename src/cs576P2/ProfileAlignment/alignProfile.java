@@ -3,12 +3,15 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.PriorityQueue;
 
 public class alignProfile {
 	private static final int match = 2;
 	private static final int mismatch = 1;
 	private static final int gapPenalty = 0;
+	private static final char gapMarker = '-';
 	/**
 	 * @param args
 	 */
@@ -48,38 +51,8 @@ public class alignProfile {
 		createScores(cellGrid); //Fills in the first two rows
 		makeGrid(s1a, s1b, s2a, s2b, cellGrid); //Fills in the rest of the grid
 		Cell cornerCell = cellGrid[cellGrid.length-1][cellGrid[0].length-1];
-		List<Paths> paths = new ArrayList<Paths>();
-		backTrace(cornerCell, paths, new Paths());
-		List<Double> totalScore = new ArrayList<Double>();
-		for (Paths pp: paths){
-			Double tempScore = 0.0;
-			for (Cell cc: pp.paths){
-				System.out.print(" || " + cc.row + "," + cc.col);
-				tempScore += cc.score;
-			}
-			totalScore.add(tempScore);
-			System.out.print(" 			Score: " + tempScore);
-			System.out.println("");
-		}
-		Double lowestIndex = Double.MIN_VALUE;
-		Paths lowestPath = null;
-		for(int i = 0; i < totalScore.size(); i ++)
-			if(totalScore.get(i) >= lowestIndex){
-				lowestIndex = totalScore.get(i);
-				lowestPath = paths.get(i);
-				
-		}
 
-		System.out.println("");
-		System.out.println("");
-		System.out.println("");
-		int tempScore = 0;
-		for (Cell cc: lowestPath.paths){
-				System.out.print(" || " + cc.row + "," + cc.col);
-				tempScore += cc.score;
-			
-		}
-		System.out.print(" 			Score: " + tempScore);
+
 	}
 
 
@@ -104,45 +77,31 @@ public class alignProfile {
 	//Method returns the value for a given pair of sequences
 	public static double returnScore(char s1a, char s1b, char s2a, char s2b){
 		int score = 0;
+		int firstScore = 0;
+		int secondScore = 0;
+		int thirdScore = 0;
+		//If they match each other
+		//A1 --> A1,A2, B1 --> B2, B3 --> B3, B4--> B4
+		if(s1a == s2a && (s1a != gapMarker || s2a != gapMarker ))firstScore += match;
+		else if(s1a == gapMarker || s2a == gapMarker) firstScore+= gapPenalty;
+		else firstScore += mismatch;
+		if(s1a == s2b && (s1a != gapMarker || s2a != gapMarker ))firstScore += match;
+		else if(s1a == gapMarker || s2a == gapMarker) score+= gapPenalty;
+		else firstScore += mismatch;
+		if(s2a == s1a && (s1a != gapMarker || s2a != gapMarker ))firstScore += match;
+		else if(s1a == gapMarker || s2a == gapMarker) firstScore+= gapPenalty;
+		else firstScore += mismatch;
+		if(s2b == s1b && (s1a != gapMarker || s2a != gapMarker ))firstScore += match;
+		else if(s1a == gapMarker || s2a == gapMarker) firstScore+= gapPenalty;
+		else firstScore += mismatch;
 
-		if(s1a == s2a)score += match;
-		else if(s1a == '-' || s2a == '-') score+= gapPenalty;
-		else score += mismatch;
-		if(s1a == s2b)score += match;
-		else if(s1a == '-' || s2a == '-') score+= gapPenalty;
-		else score += mismatch;
-		if(s2a == s1a)score += match;
-		else if(s1a == '-' || s2a == '-') score+= gapPenalty;
-		else score += mismatch;
-		if(s2b == s1b)score += match;
-		else if(s1a == '-' || s2a == '-') score+= gapPenalty;
-		else score += mismatch;
+		firstScore = firstScore/ 4;
 
-		return score / 4;
-	}
-	public static class Cell{
-		public Cell prevCell;
-		public Cell prevCell2;
-		public Cell prevCell3;
-		public Double score;
-		public int row;
-		public int col;
+		//Comparing A1 to Gaps
+		secondScore = gapPenalty;
+		thirdScore = gapPenalty;
 
-		Cell(Double score, int row, int col, Cell c){
-			this.score = score;
-			this.row = row;
-			this.col = col;
-			this.prevCell = c;
-		}
-
-
-	}
-
-	public static class Paths{
-		public List<Cell> paths;
-		public Paths(){
-			paths = new ArrayList<Cell>();
-		}
+		return firstScore + secondScore + thirdScore;
 	}
 	protected static void createScores(Cell[][] welTable){
 		//Initialize the first row
@@ -160,35 +119,108 @@ public class alignProfile {
 	}
 
 
-	private static void backTrace(Cell c, List<Paths> possiblePaths, Paths path){
+	private static List<Cell> shortestPath(Cell c, Cell[][] cellTable){
 
+		PriorityQueue<Path> pq = new PriorityQueue<Path>(10, new Comparator<Path>() {
+			public int compare(Path x, Path y) {
+				// Assume neither string is null. Real code should
+				// probably be more robust
+				if (x.cost < y.cost)return -1;
+				if (x.cost > y.cost)return 1;
+				return 0;
+			}
+		});
 
-		//Case we made it back to origin
-		if(c.prevCell == null && c.col == 0 && c.row == 0){
-			path.paths.add(c);
-			possiblePaths.add(path);
-			return;
+		
+		Path p = new Path();//Make a new path
+		p.paths.add(c);//Starting at the first element
+		pq.add(p);
+		while(!pq.isEmpty()){
+			Path currentPath = pq.poll();
+			//Check if we're at root
+			int cpSize = currentPath.paths.size(); 
+			Cell lastCell = currentPath.paths.get(cpSize);
+			int lcCol = lastCell.col;
+			int lcRow = lastCell.row;
+			if(lcCol == 0 && lcRow == 0){ //If it's the last cell we're done
+				return currentPath.paths;
+			}
+			//We know we are somewhere in the middle!
+			if(lcCol - 1 >= 0 && lcRow - 1 >= 0){
+				Cell up = cellTable[lcCol][lcRow-1];
+				Path pUp = copyPath(currentPath);
+				pUp.paths.add(up);
+				shortestPath(pUp, cellTable);
+				Cell left = cellTable[lcCol-1][lcRow];
+				Cell diagonal = cellTable[lcCol-1][lcRow-1];
+			}
+			//We know we're at the left edge
+			else if(lcCol - 1 >= 0){
+				
+			}
+			else if(lcRow- 1 >= 0){
+				
+			}
+			
+			
+			//Check all neighbors for unvisited nodes, if unvisited, make a new path and queue it;
+			
 		}
-		else{
-			Paths newPath = new Paths();
-			for (Cell cell: path.paths){
-				newPath.paths.add(cell);
+		
+		return null;
 
-			}
-			newPath.paths.add(c);
-			backTrace(c.prevCell, possiblePaths, newPath);
-			if(c.prevCell2 != null){
-				backTrace(c.prevCell2, possiblePaths, newPath);
-			}
-			if(c.prevCell3 != null){
-				backTrace(c.prevCell3, possiblePaths, newPath);
-			}
-
-
+	}
+	public static Path copyPath(Path p){
+		Path copyP = new Path();
+		copyP.cost = p.cost;
+		for(Cell c: copyP.paths){
+			copyP.paths.add(c);
 		}
+		return copyP;
+	}
+	public static class Cell{
+		public Cell prevCell;
+		public Cell prevCell2;
+		public Cell prevCell3;
+		public Double score;
+		public int row;
+		public int col;
+		public boolean visited;
+
+		Cell(Double score, int row, int col, Cell c){
+			this.score = score;
+			this.row = row;
+			this.col = col;
+			this.prevCell = c;
+			this.visited = false;
+		}
+
 
 	}
 
+	public static class Path implements Comparator<Path>{
+		public List<Cell> paths;
+		public int cost;
+		public Path(){
+			paths = new ArrayList<Cell>();
+			cost = 0;
+		}
+		@Override
+		public int compare(Path x, Path y)
+		{
+			// Assume neither string is null. Real code should
+			// probably be more robust
+			if (x.cost < y.cost)
+			{
+				return -1;
+			}
+			if (x.cost > y.cost)
+			{
+				return 1;
+			}
+			return 0;
+		}
+	}
 }
 
 
