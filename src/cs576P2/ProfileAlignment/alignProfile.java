@@ -13,20 +13,21 @@ public class alignProfile {
 	 * @param args
 	 */
 	public static void main(String[] args) throws Exception {
-		if(args.length != 3){
+		if(args.length != 4){
 			System.out.println("Not Correct # of Arguements");
 			System.exit(0);
 		}
 		String seq1FileName = args[0];
-		String seq2FileName = args[1];
-		String ending = args[2];
+		String seq2FileName = args[2];
+		String ending1 = args[1];
+		String ending2 = args[3];
 		String s1a = "";
 		String s1b = "";
 		String s2a = "";
 		String s2b = "";
 		try{
-			File s1file = new File(seq1FileName + ending);
-			File s2file = new File(seq2FileName + ending);
+			File s1file = new File(seq1FileName + "." + ending1);
+			File s2file = new File(seq2FileName + "." + ending2);
 			BufferedReader  reader = new BufferedReader(new FileReader(s1file));
 			s1a = reader.readLine();
 			s1b = reader.readLine();
@@ -35,6 +36,7 @@ public class alignProfile {
 			s1b = reader.readLine();
 		}catch(Exception e){
 			System.out.println("Failed to open file");
+			throw new Exception("Shit");
 		}		
 		s1a = " " + s1a;
 		s1a = " " + s1b;
@@ -78,10 +80,6 @@ public class alignProfile {
 			
 		}
 		System.out.print(" 			Score: " + tempScore);
-		
-
-
-
 	}
 
 
