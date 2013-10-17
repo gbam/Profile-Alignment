@@ -11,7 +11,7 @@ public class alignProfile {
 	private static final int match = 2;
 	private static final int mismatch = 1;
 	private static final int gapPenalty = 0;
-	private static final char gapMarker = '-';
+	private static final char gapMarker = '_';
 	/**
 	 * @param args
 	 */
@@ -35,14 +35,14 @@ public class alignProfile {
 			s1a = reader.readLine();
 			s1b = reader.readLine();
 			reader = new BufferedReader(new FileReader(s2file));
-			s1a = reader.readLine();
-			s1b = reader.readLine();
+			s2a = reader.readLine();
+			s2b = reader.readLine();
 		}catch(Exception e){
 			System.out.println("Failed to open file");
 			throw new Exception("Shit");
 		}		
 		s1a = " " + s1a;
-		s1a = " " + s1b;
+		s1b = " " + s1b;
 		s2a = " " + s2a;
 		s2b = " " + s2b;
 
@@ -50,8 +50,14 @@ public class alignProfile {
 		Cell[][] cellGrid = new Cell[s1a.length()][s2a.length()];
 		createScores(cellGrid); //Fills in the first two rows
 		makeGrid(s1a, s1b, s2a, s2b, cellGrid); //Fills in the rest of the grid
+		for(int i = 0; i < cellGrid.length; i++){
+			System.out.println("");
+			for(int j = 0; j < cellGrid[0].length; j++){
+				System.out.print(cellGrid[i][j].score + " | ");
+			}
+		}
 		Cell cornerCell = cellGrid[cellGrid.length-1][cellGrid[0].length-1];
-
+		shortestPath(cornerCell, cellGrid);
 
 	}
 
@@ -62,10 +68,17 @@ public class alignProfile {
 
 
 		//For each column
-		for(int j = 1; j < cellGrid[0].length; j++){
+		for(int i = 1; i < cellGrid.length; i++){
 			//for each row
-			for(int i = 1; i < cellGrid[0].length; i++){
-				cellGrid[i][j] = new Cell(returnScore(s1a.charAt(i), s1b.charAt(i), s2a.charAt(j), s2b.charAt(j)), j, i, null);
+			for(int j = 1; j < cellGrid[0].length; j++){
+
+				try{
+					cellGrid[i][j] = new Cell(returnScore(s1a.charAt(i), s1b.charAt(i), s2a.charAt(j), s2b.charAt(j)), j, i, null);
+				}
+				catch(StringIndexOutOfBoundsException e){
+					int x = 0;
+					x++;
+				}
 
 			}
 		}		
@@ -76,7 +89,7 @@ public class alignProfile {
 
 	//Method returns the value for a given pair of sequences
 	public static double returnScore(char s1a, char s1b, char s2a, char s2b){
-		int score = 0;
+		Double score = 0.0;
 		int firstScore = 0;
 		int secondScore = 0;
 		int thirdScore = 0;
@@ -85,36 +98,32 @@ public class alignProfile {
 		if(s1a == s2a && (s1a != gapMarker || s2a != gapMarker ))firstScore += match;
 		else if(s1a == gapMarker || s2a == gapMarker) firstScore+= gapPenalty;
 		else firstScore += mismatch;
-		if(s1a == s2b && (s1a != gapMarker || s2a != gapMarker ))firstScore += match;
-		else if(s1a == gapMarker || s2a == gapMarker) score+= gapPenalty;
+		if(s1a == s2b && (s1a != gapMarker || s2b != gapMarker ))firstScore += match;
+		else if(s1a == gapMarker || s2b == gapMarker) firstScore+= gapPenalty;
 		else firstScore += mismatch;
-		if(s2a == s1a && (s1a != gapMarker || s2a != gapMarker ))firstScore += match;
-		else if(s1a == gapMarker || s2a == gapMarker) firstScore+= gapPenalty;
+		if(s1b == s2a && (s1b != gapMarker || s2a != gapMarker ))firstScore += match;
+		else if(s1b == gapMarker || s2a == gapMarker) firstScore+= gapPenalty;
 		else firstScore += mismatch;
-		if(s2b == s1b && (s1a != gapMarker || s2a != gapMarker ))firstScore += match;
-		else if(s1a == gapMarker || s2a == gapMarker) firstScore+= gapPenalty;
+		if(s1b == s2b && (s1b != gapMarker || s2b != gapMarker ))firstScore += match;
+		else if(s1b == gapMarker || s2b == gapMarker) firstScore+= gapPenalty;
 		else firstScore += mismatch;
 
-		firstScore = firstScore/ 4;
+		score = (firstScore + 0.0) / 4;
 
 		//Comparing A1 to Gaps
 		secondScore = gapPenalty;
 		thirdScore = gapPenalty;
 
-		return firstScore + secondScore + thirdScore;
+		return score + secondScore + thirdScore;
 	}
 	protected static void createScores(Cell[][] welTable){
 		//Initialize the first row
 		for (int i = 0; i < welTable.length; i++){
 			welTable[i][0] = new Cell(i * gapPenalty + 0.0, i, 0, null);
-			if(i != 0) 	welTable[i][0].prevCell = 	welTable[i-1][0];
-
 		}
 		//Initialize the first column
 		for (int i = 0; i < welTable[0].length; i++){
 			welTable[0][i] = new Cell(i * gapPenalty + 0.0, i, 0, null);
-
-			if(i != 0) 	welTable[0][i].prevCell = 	welTable[0][i-1];
 		}
 	}
 
@@ -135,24 +144,36 @@ public class alignProfile {
 		Path p = new Path();//Make a new path
 		p.paths.add(c);//Starting at the first element
 		pq.add(p);
+		List<Cell> finalPaths = new ArrayList<Cell>();
 		while(!pq.isEmpty()){
 			Path currentPath = pq.poll();
 			//Check if we're at root
 			int cpSize = currentPath.paths.size(); 
-			Cell lastCell = currentPath.paths.get(cpSize);
+			Cell lastCell = currentPath.paths.get(cpSize-1);
 			int lcCol = lastCell.col;
 			int lcRow = lastCell.row;
 			if(lcCol == 0 && lcRow == 0){ //If it's the last cell we're done
-				return currentPath.paths;
+				finalPaths.add(lastCell);
 			}
 			//We know we are somewhere in the middle!
 			if(lcCol - 1 >= 0 && lcRow - 1 >= 0){
 				Cell up = cellTable[lcCol][lcRow-1];
+				up.prevCell = lastCell;
 				Path pUp = copyPath(currentPath);
 				pUp.paths.add(up);
-				shortestPath(pUp, cellTable);
+				pq.add(pUp);
+				
 				Cell left = cellTable[lcCol-1][lcRow];
+				left.prevCell = lastCell;
+				Path pLeft = copyPath(currentPath);
+				pLeft.paths.add(left);
+				pq.add(pLeft);
+				
 				Cell diagonal = cellTable[lcCol-1][lcRow-1];
+				diagonal.prevCell = lastCell;
+				Path pDiagonal = copyPath(currentPath);
+				pDiagonal.paths.add(diagonal);
+				pq.add(pDiagonal);
 			}
 			//We know we're at the left edge
 			else if(lcCol - 1 >= 0){
@@ -161,10 +182,32 @@ public class alignProfile {
 			else if(lcRow- 1 >= 0){
 				
 			}
-			
-			
-			//Check all neighbors for unvisited nodes, if unvisited, make a new path and queue it;
-			
+			}
+		List<Integer> values = new ArrayList<Integer>();
+		for(Cell cell: finalPaths){
+			int totalScore = 0;
+			do{
+				totalScore += cell.score;
+				cell = cell.prevCell;
+				
+			}while(cell.prevCell != null);
+			values.add(totalScore);
+	
+		}
+		int highest = -999999;
+		int index = -1;
+		for(int j = 0; j < values.size(); j++){
+			int i = values.get(j);
+			if(i>highest){
+				highest = i;
+				index = j;
+			}
+		}
+		
+		Cell bestPath = finalPaths.get(index);
+		System.out.println("Best Path");
+		while(bestPath.prevCell != null){
+			System.out.println("Column: " + bestPath.prevCell.col + " Row: " + bestPath.prevCell.row);
 		}
 		
 		return null;
@@ -179,9 +222,10 @@ public class alignProfile {
 		return copyP;
 	}
 	public static class Cell{
+		public Cell up;
+		public Cell left;
+		public Cell diag;
 		public Cell prevCell;
-		public Cell prevCell2;
-		public Cell prevCell3;
 		public Double score;
 		public int row;
 		public int col;
