@@ -32,11 +32,11 @@ public class alignProfile {
 			File s1file = new File(seq1FileName + "." + ending1);
 			File s2file = new File(seq2FileName + "." + ending2);
 			BufferedReader  reader = new BufferedReader(new FileReader(s1file));
-			s1a = reader.readLine();
-			s1b = reader.readLine();
-			reader = new BufferedReader(new FileReader(s2file));
 			s2a = reader.readLine();
 			s2b = reader.readLine();
+			reader = new BufferedReader(new FileReader(s2file));
+			s1a = reader.readLine();
+			s1b = reader.readLine();
 		}catch(Exception e){
 			System.out.println("Failed to open file");
 			throw new Exception("Shit");
@@ -50,35 +50,92 @@ public class alignProfile {
 		Cell[][] cellGrid = new Cell[s1a.length()][s2a.length()];
 		createScores(cellGrid); //Fills in the first two rows
 		makeGrid(s1a, s1b, s2a, s2b, cellGrid); //Fills in the rest of the grid
+		System.out.print("       ");
+		
+		for (int i = 0; i < s2a.length(); i++){
+		System.out.print(s2a.charAt(i) + "     ");
+		}
+		System.out.println("        ");
+		System.out.print("       ");
+		for (int i = 0; i < s2a.length(); i++){
+			System.out.print(s2b.charAt(i) + "     ");
+			}
+		System.out.println("");
 		for(int i = 0; i < cellGrid.length; i++){
-			System.out.println("");
+			if(i < s1a.length()) System.out.print(s1a.charAt(i) + " " + s1b.charAt(i) + "   ");
 			for(int j = 0; j < cellGrid[0].length; j++){
 				System.out.print(cellGrid[i][j].score + " | ");
 			}
+			System.out.println("     ");
 		}
 		Cell cornerCell = cellGrid[cellGrid.length-1][cellGrid[0].length-1];
-		shortestPath(cornerCell, cellGrid);
+		//shortestPath(cornerCell, cellGrid);
 
 	}
 
+	
 
 	//Must return a grid of scores
 	private static Cell[][] makeGrid(String s1a, String s1b, String s2a,
-			String s2b, Cell[][] cellGrid) {
+			String s2b, Cell[][] cellGrid) throws Exception {
 
 
 		//For each column
 		for(int i = 1; i < cellGrid.length; i++){
 			//for each row
 			for(int j = 1; j < cellGrid[0].length; j++){
+				Double upScore =  cellGrid[i-1][j].score + gapPenalty;
+				Double leftScore = cellGrid[i][j-1].score + gapPenalty;
+				Double currentScore = returnScore(s1a.charAt(i), s1b.charAt(i), s2a.charAt(j), s2b.charAt(j));
+				cellGrid[i][j] = new Cell(0.0, i, j, null);
+				Double diagScore = cellGrid[i-1][j-1].score + currentScore;
+				
+				if(leftScore.compareTo(upScore) == 0 && leftScore.compareTo(diagScore) == 0){
+					cellGrid[i][j].prevCell1 = cellGrid[i-1][j];
+					cellGrid[i][j].prevCell2 = cellGrid[i-1][j-1];
+					cellGrid[i][j].prevCell3 = cellGrid[i][j-1];
+					cellGrid[i][j].score = diagScore;
+				}
+			
+				//Left is highest
+				else if(leftScore > upScore && leftScore > diagScore){
+					cellGrid[i][j].prevCell1 = cellGrid[i][j-1];
+					cellGrid[i][j].score = leftScore;
+				}
+				//Up is highest
+				else if(upScore > leftScore && upScore > diagScore){
+					cellGrid[i][j].prevCell1 = cellGrid[i-1][j];
+					cellGrid[i][j].score = upScore;
+				}
+				//Diagonal is highest
+				else if(diagScore > leftScore && diagScore > upScore){
+					Cell pointCell = cellGrid[i-1][j-1];
+					cellGrid[i][j].prevCell1 = pointCell;
+					cellGrid[i][j].score = diagScore; 
+				}
+				//Left and Diagonal match
+				else if(diagScore.compareTo(leftScore) == 0 && diagScore > upScore){
+					cellGrid[i][j].prevCell1 = cellGrid[i-1][j-1];
+					cellGrid[i][j].prevCell2 = cellGrid[i][j-1];
+					cellGrid[i][j].score = diagScore;
+				}
+				//Left and Up match
+				else if(upScore.compareTo(leftScore) == 0 && leftScore > diagScore){
+					cellGrid[i][j].prevCell1 = cellGrid[i-1][j];
+					cellGrid[i][j].prevCell2 = cellGrid[i][j-1];
+					cellGrid[i][j].score = upScore;
+					
+				}
+				//diagonal and up match
+				else if(diagScore.compareTo(upScore) == 0 && diagScore > leftScore){
+					cellGrid[i][j].prevCell1 = cellGrid[i-1][j];
+					cellGrid[i][j].prevCell2 = cellGrid[i-1][j-1];
+					cellGrid[i][j].score = diagScore;
+				}
+				else{
+					throw new Exception();
+				}
 
-				try{
-					cellGrid[i][j] = new Cell(returnScore(s1a.charAt(i), s1b.charAt(i), s2a.charAt(j), s2b.charAt(j)), j, i, null);
-				}
-				catch(StringIndexOutOfBoundsException e){
-					int x = 0;
-					x++;
-				}
 
 			}
 		}		
@@ -119,100 +176,20 @@ public class alignProfile {
 	protected static void createScores(Cell[][] welTable){
 		//Initialize the first row
 		for (int i = 0; i < welTable.length; i++){
-			welTable[i][0] = new Cell(i * gapPenalty + 0.0, i, 0, null);
+			welTable[i][0] = new Cell(i * gapPenalty + 0.0, 0, i, null);
+			if(i != 0)welTable[i][0].prevCell1 = welTable[i-1][0];
 		}
 		//Initialize the first column
-		for (int i = 0; i < welTable[0].length; i++){
+		for (int i = 1; i < welTable[0].length; i++){
 			welTable[0][i] = new Cell(i * gapPenalty + 0.0, i, 0, null);
+			if(i != 0)welTable[0][i].prevCell1 = welTable[0][i-1];
 		}
-	}
-
-
-	private static List<Cell> shortestPath(Cell c, Cell[][] cellTable){
-
-		PriorityQueue<Path> pq = new PriorityQueue<Path>(10, new Comparator<Path>() {
-			public int compare(Path x, Path y) {
-				// Assume neither string is null. Real code should
-				// probably be more robust
-				if (x.cost < y.cost)return -1;
-				if (x.cost > y.cost)return 1;
-				return 0;
-			}
-		});
-
-		
-		Path p = new Path();//Make a new path
-		p.paths.add(c);//Starting at the first element
-		pq.add(p);
-		List<Cell> finalPaths = new ArrayList<Cell>();
-		while(!pq.isEmpty()){
-			Path currentPath = pq.poll();
-			//Check if we're at root
-			int cpSize = currentPath.paths.size(); 
-			Cell lastCell = currentPath.paths.get(cpSize-1);
-			int lcCol = lastCell.col;
-			int lcRow = lastCell.row;
-			if(lcCol == 0 && lcRow == 0){ //If it's the last cell we're done
-				finalPaths.add(lastCell);
-			}
-			//We know we are somewhere in the middle!
-			if(lcCol - 1 >= 0 && lcRow - 1 >= 0){
-				Cell up = cellTable[lcCol][lcRow-1];
-				up.prevCell = lastCell;
-				Path pUp = copyPath(currentPath);
-				pUp.paths.add(up);
-				pq.add(pUp);
-				
-				Cell left = cellTable[lcCol-1][lcRow];
-				left.prevCell = lastCell;
-				Path pLeft = copyPath(currentPath);
-				pLeft.paths.add(left);
-				pq.add(pLeft);
-				
-				Cell diagonal = cellTable[lcCol-1][lcRow-1];
-				diagonal.prevCell = lastCell;
-				Path pDiagonal = copyPath(currentPath);
-				pDiagonal.paths.add(diagonal);
-				pq.add(pDiagonal);
-			}
-			//We know we're at the left edge
-			else if(lcCol - 1 >= 0){
-				
-			}
-			else if(lcRow- 1 >= 0){
-				
-			}
-			}
-		List<Integer> values = new ArrayList<Integer>();
-		for(Cell cell: finalPaths){
-			int totalScore = 0;
-			do{
-				totalScore += cell.score;
-				cell = cell.prevCell;
-				
-			}while(cell.prevCell != null);
-			values.add(totalScore);
+		int x = 0;
+		x++;
 	
-		}
-		int highest = -999999;
-		int index = -1;
-		for(int j = 0; j < values.size(); j++){
-			int i = values.get(j);
-			if(i>highest){
-				highest = i;
-				index = j;
-			}
-		}
-		
-		Cell bestPath = finalPaths.get(index);
-		System.out.println("Best Path");
-		while(bestPath.prevCell != null){
-			System.out.println("Column: " + bestPath.prevCell.col + " Row: " + bestPath.prevCell.row);
-		}
-		
-		return null;
-
 	}
+
+
 	public static Path copyPath(Path p){
 		Path copyP = new Path();
 		copyP.cost = p.cost;
@@ -222,10 +199,9 @@ public class alignProfile {
 		return copyP;
 	}
 	public static class Cell{
-		public Cell up;
-		public Cell left;
-		public Cell diag;
-		public Cell prevCell;
+		public Cell prevCell1;
+		public Cell prevCell2;
+		public Cell prevCell3;
 		public Double score;
 		public int row;
 		public int col;
@@ -235,7 +211,7 @@ public class alignProfile {
 			this.score = score;
 			this.row = row;
 			this.col = col;
-			this.prevCell = c;
+			this.prevCell1 = c;
 			this.visited = false;
 		}
 
